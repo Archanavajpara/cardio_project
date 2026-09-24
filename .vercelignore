@@ -1,0 +1,9 @@
+# Vercel Deployment Ignore Rules
+.ipynb_checkpoints/
+*.ipynb
+data/
+*.csv
+*.pyc
+__pycache__/
+*.pkl
+node_modules/

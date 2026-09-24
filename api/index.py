@@ -1,5 +1,10 @@
 import os
 import sys
+import json
+import math
+import time
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 
 # Ensure both current directory and parent directory are in sys.path
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -8,12 +13,6 @@ if CURRENT_DIR not in sys.path:
     sys.path.insert(0, CURRENT_DIR)
 if PARENT_DIR not in sys.path:
     sys.path.insert(0, PARENT_DIR)
-
-import joblib
-import numpy as np
-import pandas as pd
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
 
 try:
     from api.schemas import (
@@ -42,42 +41,72 @@ app.add_middleware(
 )
 
 # Base Paths
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-MODEL_PATH = os.path.join(CURRENT_DIR, "model", "cardio_model.pkl")
-SCALER_PATH = os.path.join(CURRENT_DIR, "model", "scaler.pkl")
-DATA_PATH = os.path.join(BASE_DIR, "data", "cardio_data.csv")
+MODEL_JSON_PATH = os.path.join(CURRENT_DIR, "model", "model_data.json")
+INSIGHTS_JSON_PATH = os.path.join(CURRENT_DIR, "insights.json")
 
 # Global instances
-model = None
-scaler = None
+model_data = None
+insights_cache = None
 
 FEATURE_NAMES = ['age', 'gender', 'height', 'weight', 'ap_hi', 'ap_lo', 'cholesterol', 'gluc', 'smoke', 'alco', 'active']
 
-@app.on_event("startup")
 def load_ml_assets():
-    global model, scaler
+    global model_data, insights_cache
     try:
-        if os.path.exists(MODEL_PATH) and os.path.exists(SCALER_PATH):
-            model = joblib.load(MODEL_PATH)
-            scaler = joblib.load(SCALER_PATH)
-            print("GradientBoosting Model and Scaler loaded successfully!")
+        if os.path.exists(MODEL_JSON_PATH):
+            with open(MODEL_JSON_PATH, "r", encoding="utf-8") as f:
+                model_data = json.load(f)
+            print("Optimized GradientBoosting model (lightweight JSON) loaded successfully!")
         else:
-            print("Warning: Model or Scaler file not found. Predictions will raise an error.")
+            # Fallback to joblib if available
+            try:
+                import joblib
+                pkl_path = os.path.join(CURRENT_DIR, "model", "cardio_model.pkl")
+                scaler_path = os.path.join(CURRENT_DIR, "model", "scaler.pkl")
+                if os.path.exists(pkl_path) and os.path.exists(scaler_path):
+                    model = joblib.load(pkl_path)
+                    scaler = joblib.load(scaler_path)
+                    trees_data = []
+                    for stage in model.estimators_:
+                        tree = stage[0].tree_
+                        trees_data.append({
+                            'cl': tree.children_left.tolist(),
+                            'cr': tree.children_right.tolist(),
+                            'f': tree.feature.tolist(),
+                            'th': [round(x, 6) for x in tree.threshold.tolist()],
+                            'v': [round(x, 6) for x in tree.value[:, 0, 0].tolist()],
+                        })
+                    model_data = {
+                        'init_val': round(float(model._raw_predict_init([[0]*11])[0, 0]), 6),
+                        'lr': float(model.learning_rate),
+                        'mean': [round(x, 6) for x in scaler.mean_.tolist()],
+                        'scale': [round(x, 6) for x in scaler.scale_.tolist()],
+                        'trees': trees_data
+                    }
+                    print("Converted and loaded model from pickle successfully!")
+            except Exception as e:
+                print(f"Fallback loader notice: {e}")
     except Exception as e:
         print(f"Error loading ML assets: {e}")
 
-# Pre-load ML assets on module import
+    try:
+        if os.path.exists(INSIGHTS_JSON_PATH):
+            with open(INSIGHTS_JSON_PATH, "r", encoding="utf-8") as f:
+                insights_cache = json.load(f)
+            print("Precomputed insights cache loaded successfully!")
+    except Exception as e:
+        print(f"Error loading insights cache: {e}")
+
+# Pre-load assets on module import
 load_ml_assets()
 
 @app.get("/api/health")
 def health_check():
-    import time
     return {
         "status": "healthy",
         "service": "Cardio Care API",
-        "model_loaded": model is not None and scaler is not None,
-        "model_type": "GradientBoostingClassifier",
+        "model_loaded": model_data is not None,
+        "model_type": "GradientBoostingClassifier (Optimized Native Runner)",
         "accuracy": "91.2%",
         "f1_score": "91.1%",
         "timestamp": time.time()
@@ -85,31 +114,44 @@ def health_check():
 
 @app.post("/api/predict", response_model=PredictionResponse)
 def predict_cardio_risk(req: PredictionRequest):
-    if model is None or scaler is None:
+    if model_data is None:
         raise HTTPException(status_code=500, detail="ML model artifacts not loaded on server.")
     
     # Calculate BMI
     height_m = req.height / 100.0
     bmi = round(req.weight / (height_m ** 2), 1)
     
-    # Construct DataFrame to preserve feature names for StandardScaler
-    features_df = pd.DataFrame([[
-        req.age,
-        req.gender,
-        req.height,
-        req.weight,
-        req.ap_hi,
-        req.ap_lo,
-        req.cholesterol,
-        req.gluc,
-        req.smoke,
-        req.alco,
-        req.active
-    ]], columns=FEATURE_NAMES)
+    features = [
+        req.age, req.gender, req.height, req.weight,
+        req.ap_hi, req.ap_lo, req.cholesterol, req.gluc,
+        req.smoke, req.alco, req.active
+    ]
     
-    features_scaled = scaler.transform(features_df)
-    prediction = int(model.predict(features_scaled)[0])
-    probability = float(model.predict_proba(features_scaled)[0][1])
+    # Standardize features: (x - mean) / scale
+    mean = model_data['mean']
+    scale = model_data['scale']
+    scaled = [(features[i] - mean[i]) / scale[i] for i in range(11)]
+    
+    # Gradient boosting tree traversal
+    score = model_data['init_val']
+    lr = model_data['lr']
+    
+    for t in model_data['trees']:
+        node = 0
+        cl = t['cl']
+        cr = t['cr']
+        feat = t['f']
+        thresh = t['th']
+        val = t['v']
+        while cl[node] != -1:
+            if scaled[feat[node]] <= thresh[node]:
+                node = cl[node]
+            else:
+                node = cr[node]
+        score += lr * val[node]
+        
+    probability = 1.0 / (1.0 + math.exp(-score))
+    prediction = int(probability >= 0.5)
     prob_pct = int(round(probability * 100))
     
     # Determine risk level category & status message
@@ -150,32 +192,15 @@ def predict_cardio_risk(req: PredictionRequest):
 
 @app.get("/api/insights", response_model=InsightsResponse)
 def get_insights():
-    if not os.path.exists(DATA_PATH):
-        raise HTTPException(status_code=404, detail="Dataset file not found.")
-    
-    df = pd.read_csv(DATA_PATH)
-    
-    # Clean data sample for frontend visualization
-    sample_df = df.sample(n=min(300, len(df)), random_state=42).copy()
-    sample_df['At_Risk'] = sample_df['cardio'].map({1: 'High Risk', 0: 'Healthy'})
-    
-    data_points = []
-    for _, row in sample_df.iterrows():
-        data_points.append(DataPoint(
-            Age=float(row['age']),
-            Systolic_BP=float(row['ap_hi']),
-            At_Risk=str(row['At_Risk']),
-            Cardio=int(row['cardio'])
-        ))
+    if insights_cache is not None:
+        return InsightsResponse(**insights_cache)
         
-    return InsightsResponse(
-        total_records=len(df),
-        healthy_count=int((df['cardio'] == 0).sum()),
-        high_risk_count=int((df['cardio'] == 1).sum()),
-        avg_age=round(float(df['age'].mean()), 1),
-        avg_systolic_bp=round(float(df['ap_hi'].dropna().mean()), 1),
-        sample_data=data_points
-    )
+    if os.path.exists(INSIGHTS_JSON_PATH):
+        with open(INSIGHTS_JSON_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            return InsightsResponse(**data)
+            
+    raise HTTPException(status_code=404, detail="Dataset insights cache not found.")
 
 @app.get("/api/health-tips")
 def get_health_tips():
@@ -233,9 +258,5 @@ def get_health_tips():
 
 if __name__ == "__main__":
     import uvicorn
-    import os
-    import sys
-    
-    # If run from the api directory, use index:app, else use api.index:app
     module_path = "index:app" if os.path.basename(os.getcwd()) == "api" else "api.index:app"
     uvicorn.run(module_path, host="127.0.0.1", port=8000, reload=True)
