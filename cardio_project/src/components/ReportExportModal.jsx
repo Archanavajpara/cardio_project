@@ -24,7 +24,7 @@ export default function ReportExportModal({
   const isHigh = predictionResult ? predictionResult.is_high_risk : false;
 
   const reportContent = `====================================================
-CARDIOPULSE AI - CARDIOVASCULAR HEALTH ASSESSMENT
+CARDIORISK AI - CARDIOVASCULAR HEALTH ASSESSMENT
 Date Generated: ${dateStr}
 ====================================================
 

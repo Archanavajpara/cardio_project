@@ -45,53 +45,8 @@ export const THEMES = {
     badge_text: "#1d4ed8",
     badge_border: "rgba(37, 99, 235, 0.25)",
     gauge_bar: "#2563eb"
-  },
-  "Emerald Vitality (Wellness Eco)": {
-    id: "emerald",
-    name: "Emerald Vitality (Wellness Eco)",
-    isDark: true,
-    bg_primary: "#061c14",
-    bg_secondary: "#0c2b20",
-    bg_card: "rgba(18, 56, 42, 0.85)",
-    bg_card_solid: "#0e3427",
-    card_border: "rgba(52, 211, 153, 0.3)",
-    text_primary: "#ecfdf5",
-    text_secondary: "#a7f3d0",
-    accent_glow: "#10b981",
-    accent_cyan: "#34d399",
-    accent_gradient: "linear-gradient(135deg, #10b981 0%, #fbbf24 100%)",
-    card_shadow: "0 8px 32px 0 rgba(2, 44, 34, 0.55)",
-    input_bg: "#0d3627",
-    input_border: "rgba(52, 211, 153, 0.4)",
-    input_text: "#ecfdf5",
-    badge_bg: "rgba(16, 185, 129, 0.15)",
-    badge_text: "#34d399",
-    badge_border: "rgba(52, 211, 153, 0.35)",
-    gauge_bar: "#34d399"
-  },
-  "Sunset Crimson (Cardio Vitality)": {
-    id: "sunset",
-    name: "Sunset Crimson (Cardio Vitality)",
-    isDark: true,
-    bg_primary: "#190812",
-    bg_secondary: "#2b0d1e",
-    bg_card: "rgba(56, 17, 39, 0.85)",
-    bg_card_solid: "#3a1329",
-    card_border: "rgba(244, 63, 94, 0.3)",
-    text_primary: "#fff1f2",
-    text_secondary: "#fda4af",
-    accent_glow: "#f43f5e",
-    accent_cyan: "#fb923c",
-    accent_gradient: "linear-gradient(135deg, #f43f5e 0%, #fb923c 100%)",
-    card_shadow: "0 8px 32px 0 rgba(40, 5, 25, 0.55)",
-    input_bg: "#381228",
-    input_border: "rgba(244, 63, 94, 0.4)",
-    input_text: "#fff1f2",
-    badge_bg: "rgba(244, 63, 94, 0.15)",
-    badge_text: "#fb7185",
-    badge_border: "rgba(244, 63, 94, 0.35)",
-    gauge_bar: "#f43f5e"
   }
+  
 };
 
 export const PRESETS = {

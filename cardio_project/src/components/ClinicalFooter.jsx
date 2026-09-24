@@ -23,7 +23,7 @@ export default function ClinicalFooter({ setActiveTab, theme }) {
             </div>
             <div>
               <span className="font-extrabold" style={{ color: theme.text_primary }}>
-                CardioPulse™ Clinical AI Suite
+                CardioRisk™ Clinical AI Suite
               </span>
               <span className="text-[11px] ml-2 font-medium" style={{ color: theme.text_secondary }}>
                 FastAPI ML + GradientBoosting Classifier
@@ -64,7 +64,7 @@ export default function ClinicalFooter({ setActiveTab, theme }) {
           style={{ borderColor: theme.card_border }}
         >
           <p style={{ color: theme.text_secondary }}>
-            © {new Date().getFullYear()} CardioPulse AI. Cardiovascular Risk Intelligence Platform.
+            © {new Date().getFullYear()} CardioRisk AI. Cardiovascular Risk Intelligence Platform.
           </p>
           <div className="flex items-center gap-1.5 font-semibold text-emerald-400">
             <ShieldCheck className="w-3.5 h-3.5" /> HIPAA-Compliant In-Memory Evaluation (Zero Patient Retention)

@@ -16,7 +16,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 try:
-    from backend.schemas import (
+    from api.schemas import (
         PredictionRequest, PredictionResponse,
         InsightsResponse, DataPoint, HealthTip
     )
@@ -43,8 +43,9 @@ app.add_middleware(
 
 # Base Paths
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MODEL_PATH = os.path.join(BASE_DIR, "model", "cardio_model.pkl")
-SCALER_PATH = os.path.join(BASE_DIR, "model", "scaler.pkl")
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_PATH = os.path.join(CURRENT_DIR, "model", "cardio_model.pkl")
+SCALER_PATH = os.path.join(CURRENT_DIR, "model", "scaler.pkl")
 DATA_PATH = os.path.join(BASE_DIR, "data", "cardio_data.csv")
 
 # Global instances
@@ -232,5 +233,9 @@ def get_health_tips():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
-
+    import os
+    import sys
+    
+    # If run from the api directory, use index:app, else use api.index:app
+    module_path = "index:app" if os.path.basename(os.getcwd()) == "api" else "api.index:app"
+    uvicorn.run(module_path, host="127.0.0.1", port=8000, reload=True)
