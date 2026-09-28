@@ -25,5 +25,5 @@ npm run dev
 Note: The README mentions `python run.py`, but that file doesn't exist in the project, so you can use the commands above to manually start both servers.
 
 
-BE: python -m uvicorn index:app --reload
+BE: python -m uvicorn api.index:app --reload
 FE: npm run dev
